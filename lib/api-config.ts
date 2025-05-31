@@ -1,7 +1,7 @@
 // API Configuration
 export const API_CONFIG = {
-  // Flask backend URL - update this to match your Flask server
-  FLASK_BASE_URL: process.env.NEXT_PUBLIC_FLASK_API_URL || "http://localhost:5002",
+  // Vercel serverless functions - no external URL needed
+  FLASK_BASE_URL: "",
   
   // API endpoints
   ENDPOINTS: {
@@ -11,6 +11,7 @@ export const API_CONFIG = {
 }
 
 // Helper function to build full API URLs
-export const buildApiUrl = (endpoint: string) => {
-  return `${API_CONFIG.FLASK_BASE_URL}${endpoint}`
+export function buildApiUrl(endpoint: string): string {
+  // For Vercel deployment, use relative URLs for serverless functions
+  return endpoint
 } 
