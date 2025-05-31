@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%; /* Very Light Gray (almost white) */
+    --foreground: 220 15% 25%; /* Dark Gray for text */
+
+    --card: 0 0% 100%; /* White */
+    --card-foreground: var(--foreground);
+
+    --popover: 0 0% 100%; /* White */
+    --popover-foreground: var(--foreground);
+
+    --primary: 24 95% 53%; /* Orange-500 (Vibrant Orange) */
+    --primary-foreground: 0 0% 100%; /* White */
+
+    --secondary: 30 100% 97%; /* Light Orange (Orange-50) */
+    --secondary-foreground: 22 91% 48%; /* Orange-600 for text on light orange */
+
+    --muted: 210 40% 96.1%; /* Light Gray */
+    --muted-foreground: 215.4 16.3% 46.9%; /* Medium Gray */
+
+    --accent: var(--primary);
+    --accent-foreground: var(--primary-foreground);
+
+    --destructive: 0 84.2% 60.2%; /* Red */
+    --destructive-foreground: 0 0% 100%; /* White */
+
+    --border: 214.3 31.8% 91.4%; /* Light Gray Border */
+    --input: 214.3 31.8% 91.4%; /* Light Gray Input Background */
+    --ring: var(--primary); /* Orange for focus rings */
+
+    --radius: 0.5rem;
+
+    /* Specific Orange Shades for consistency */
+    --orange-50: 34 100% 97%;
+    --orange-100: 32 100% 95%;
+    --orange-200: 30 100% 90%;
+    --orange-300: 28 95% 80%;
+    --orange-400: 26 90% 65%;
+    --orange-500: 24 95% 53%;
+    --orange-600: 22 91% 48%;
+    --orange-700: 20 88% 40%;
+    --orange-800: 18 85% 35%;
+    --orange-900: 16 80% 30%;
+    --orange-950: 15 75% 20%;
+  }
+
+  /* NO DARK MODE STYLES */
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  .progress-indicator {
+    /* Ensure progress bar uses primary color */
+    @apply bg-primary;
+  }
+}
