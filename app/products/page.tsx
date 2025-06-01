@@ -74,6 +74,8 @@ interface Product {
   quantity: number
   createdDate: string
   sold: number
+  status: "In Progress" | "Live"
+  createdAt: string // ISO timestamp for 48-hour calculation
 }
 
 const initialMockProducts: Product[] = [
@@ -91,6 +93,8 @@ const initialMockProducts: Product[] = [
     quantity: 3,
     createdDate: "2024-05-15",
     sold: 0,
+    status: "Live",
+    createdAt: "2024-05-13T10:00:00Z", // More than 48 hours ago
   },
   {
     id: "2",
@@ -106,6 +110,8 @@ const initialMockProducts: Product[] = [
     quantity: 5,
     createdDate: "2024-05-10",
     sold: 12,
+    status: "Live",
+    createdAt: "2024-05-08T14:30:00Z", // More than 48 hours ago
   },
   {
     id: "3",
@@ -121,6 +127,8 @@ const initialMockProducts: Product[] = [
     quantity: 1,
     createdDate: "2024-04-20",
     sold: 2,
+    status: "Live",
+    createdAt: "2024-04-18T09:15:00Z", // More than 48 hours ago
   },
   {
     id: "4",
@@ -136,6 +144,8 @@ const initialMockProducts: Product[] = [
     quantity: 10,
     createdDate: "2024-03-01",
     sold: 5,
+    status: "Live",
+    createdAt: "2024-02-28T16:45:00Z", // More than 48 hours ago
   },
   {
     id: "5",
@@ -151,6 +161,8 @@ const initialMockProducts: Product[] = [
     quantity: 8,
     createdDate: "2024-04-15",
     sold: 3,
+    status: "Live",
+    createdAt: "2024-04-13T11:20:00Z", // More than 48 hours ago
   },
   {
     id: "6",
@@ -166,6 +178,8 @@ const initialMockProducts: Product[] = [
     quantity: 15,
     createdDate: "2024-05-01",
     sold: 7,
+    status: "Live",
+    createdAt: "2024-04-29T13:10:00Z", // More than 48 hours ago
   },
   {
     id: "7",
@@ -181,6 +195,8 @@ const initialMockProducts: Product[] = [
     quantity: 20,
     createdDate: "2024-04-28",
     sold: 15,
+    status: "Live",
+    createdAt: "2024-04-26T08:30:00Z", // More than 48 hours ago
   },
   {
     id: "8",
@@ -196,6 +212,8 @@ const initialMockProducts: Product[] = [
     quantity: 12,
     createdDate: "2024-05-05",
     sold: 4,
+    status: "Live",
+    createdAt: "2024-05-03T15:45:00Z", // More than 48 hours ago
   },
   {
     id: "9",
@@ -211,6 +229,8 @@ const initialMockProducts: Product[] = [
     quantity: 3,
     createdDate: "2024-03-15",
     sold: 1,
+    status: "Live",
+    createdAt: "2024-03-13T10:00:00Z", // More than 48 hours ago
   },
   {
     id: "10",
@@ -226,6 +246,8 @@ const initialMockProducts: Product[] = [
     quantity: 6,
     createdDate: "2024-04-10",
     sold: 2,
+    status: "Live",
+    createdAt: "2024-04-08T14:30:00Z", // More than 48 hours ago
   },
   {
     id: "11",
@@ -241,6 +263,8 @@ const initialMockProducts: Product[] = [
     quantity: 18,
     createdDate: "2024-05-12",
     sold: 9,
+    status: "Live",
+    createdAt: "2024-05-10T14:30:00Z", // More than 48 hours ago
   },
   {
     id: "12",
@@ -256,6 +280,8 @@ const initialMockProducts: Product[] = [
     quantity: 7,
     createdDate: "2024-04-25",
     sold: 3,
+    status: "Live",
+    createdAt: "2024-04-23T09:15:00Z", // More than 48 hours ago
   },
   {
     id: "13",
@@ -271,6 +297,8 @@ const initialMockProducts: Product[] = [
     quantity: 11,
     createdDate: "2024-05-08",
     sold: 6,
+    status: "Live",
+    createdAt: "2024-05-06T13:10:00Z", // More than 48 hours ago
   },
   {
     id: "14",
@@ -286,6 +314,8 @@ const initialMockProducts: Product[] = [
     quantity: 25,
     createdDate: "2024-05-03",
     sold: 18,
+    status: "Live",
+    createdAt: "2024-05-01T08:30:00Z", // More than 48 hours ago
   },
   {
     id: "15",
@@ -301,6 +331,42 @@ const initialMockProducts: Product[] = [
     quantity: 2,
     createdDate: "2024-03-20",
     sold: 1,
+    status: "Live",
+    createdAt: "2024-03-18T10:00:00Z", // More than 48 hours ago
+  },
+  {
+    id: "17",
+    imageUrl: "/placeholder.svg?height=40&width=40",
+    name: "Nintendo Switch OLED Model",
+    condition: "New",
+    sku: "NINTEN-SW-OLED",
+    location: "A1",
+    cost: 320.0,
+    priceNew: 0.0,
+    sellingPrice: 349.99,
+    buybox: true,
+    quantity: 2,
+    createdDate: new Date().toISOString().split('T')[0],
+    sold: 0,
+    status: "In Progress",
+    createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(), // 12 hours ago
+  },
+  {
+    id: "18",
+    imageUrl: "/placeholder.svg?height=40&width=40",
+    name: "Apple iPad Air 5th Generation",
+    condition: "New",
+    sku: "APPLE-IPAD-AIR5",
+    location: "B7",
+    cost: 500.0,
+    priceNew: 0.0,
+    sellingPrice: 599.99,
+    buybox: true,
+    quantity: 1,
+    createdDate: new Date().toISOString().split('T')[0],
+    sold: 0,
+    status: "In Progress",
+    createdAt: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString(), // 36 hours ago
   },
 ]
 
@@ -524,7 +590,9 @@ export default function ProductsPage() {
       buybox: amazonProduct.buybox_data?.is_amazon_buybox || false,
       quantity: 0, // Default quantity
       createdDate: new Date().toISOString().split('T')[0],
-      sold: 0
+      sold: 0,
+      status: "Live",
+      createdAt: new Date().toISOString(),
     }
 
     // Add to products list
@@ -554,14 +622,33 @@ export default function ProductsPage() {
     // Create a new product with a unique ID
     const newProduct: Product = {
       id: Date.now().toString(), // Generate a temporary ID
-      ...productData
+      ...productData,
+      status: "In Progress", // New products start as "In Progress"
+      createdAt: new Date().toISOString(), // Current timestamp
     }
 
     // Add to products list
     setProducts(prev => [newProduct, ...prev])
   }
 
-  const filteredProducts = products.filter(
+  // Function to calculate status based on time elapsed since creation
+  const getProductStatus = (createdAt: string): "In Progress" | "Live" => {
+    const createdTime = new Date(createdAt).getTime()
+    const currentTime = new Date().getTime()
+    const hoursDiff = (currentTime - createdTime) / (1000 * 60 * 60)
+    
+    return hoursDiff >= 48 ? "Live" : "In Progress"
+  }
+
+  // Update products with calculated status
+  const productsWithUpdatedStatus = useMemo(() => {
+    return products.map(product => ({
+      ...product,
+      status: getProductStatus(product.createdAt)
+    }))
+  }, [products])
+
+  const filteredProducts = productsWithUpdatedStatus.filter(
     (product) =>
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.sku.toLowerCase().includes(searchTerm.toLowerCase()),
@@ -709,6 +796,9 @@ export default function ProductsPage() {
                     <TableHead className="w-[130px] px-4 py-4 text-sm text-gray-700 font-semibold">FOB Price</TableHead>
                     <TableHead className="w-[110px] px-4 py-4 text-sm text-gray-700 font-semibold text-right">
                       Quantity
+                    </TableHead>
+                    <TableHead className="w-[100px] px-4 py-4 text-sm text-gray-700 font-semibold text-center">
+                      Status
                     </TableHead>
                     <TableHead className="w-[120px] px-4 py-4 text-sm text-gray-700 font-semibold text-right">
                       Created Date
@@ -863,6 +953,23 @@ export default function ProductsPage() {
                             </div>
                           )}
                         </TableCell>
+                        <TableCell className="px-4 py-3 align-top text-center">
+                          <div className="flex justify-center">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                              product.status === "Live" 
+                                ? "bg-green-100 text-green-800 border border-green-200" 
+                                : "bg-yellow-100 text-yellow-800 border border-yellow-200"
+                            }`}>
+                              {product.status === "Live" && (
+                                <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></div>
+                              )}
+                              {product.status === "In Progress" && (
+                                <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full mr-1.5 animate-pulse"></div>
+                              )}
+                              {product.status}
+                            </span>
+                          </div>
+                        </TableCell>
                         <TableCell className="px-4 py-3 align-top text-right text-sm text-muted-foreground">
                           {formatDate(product.createdDate)}
                         </TableCell>
@@ -890,7 +997,7 @@ export default function ProductsPage() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                      <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                         No products found.
                       </TableCell>
                     </TableRow>
