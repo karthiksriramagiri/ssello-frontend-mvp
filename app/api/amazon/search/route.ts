@@ -86,9 +86,20 @@ function formatProduct(item: any): any {
     // Extract image
     let imageUrl = ''
     if (item.images && item.images.length > 0) {
-      const primaryImage = item.images.find((img: any) => img.variant === 'MAIN') || item.images[0]
-      if (primaryImage && primaryImage.link) {
-        imageUrl = primaryImage.link
+      // Look for the first available image
+      for (const imageSet of item.images) {
+        if (imageSet.images && Array.isArray(imageSet.images)) {
+          // Find the MAIN or first available image
+          const mainImage = imageSet.images.find((img: any) => img.variant === 'MAIN') || imageSet.images[0]
+          if (mainImage && mainImage.link) {
+            imageUrl = mainImage.link
+            break
+          }
+        } else if (imageSet.link) {
+          // Direct link format
+          imageUrl = imageSet.link
+          break
+        }
       }
     }
     
