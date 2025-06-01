@@ -1,45 +1,124 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { SellingPartner } from 'amazon-sp-api'
+import crypto from 'crypto'
 
-// Initialize SP-API client with environment variables
-function createSPAPIClient() {
-  const credentials = {
-    refresh_token: process.env.AMAZON_REFRESH_TOKEN,
-    lwa_app_id: process.env.AMAZON_LWA_APP_ID,
-    lwa_client_secret: process.env.AMAZON_LWA_CLIENT_SECRET,
-  }
-
-  // Validate that all required environment variables are set
-  const requiredVars = ['AMAZON_REFRESH_TOKEN', 'AMAZON_LWA_APP_ID', 'AMAZON_LWA_CLIENT_SECRET']
-  const missingVars = requiredVars.filter(varName => !process.env[varName])
-
-  if (missingVars.length > 0) {
-    throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`)
-  }
-
-  return new SellingPartner({
-    region: 'na', // North America region
-    refresh_token: credentials.refresh_token,
-    credentials: {
-      SELLING_PARTNER_APP_CLIENT_ID: credentials.lwa_app_id,
-      SELLING_PARTNER_APP_CLIENT_SECRET: credentials.lwa_client_secret
-    },
-    endpoints_versions: {
-      catalogItems: '2022-04-01' // Use the latest version
-    }
-  })
+// Helper function to sign requests
+function sign(key: string, msg: string): Buffer {
+  return crypto.createHmac('sha256', key).update(msg, 'utf8').digest()
 }
 
-function extractListPrice(lpVal: any): number {
+function getSignatureKey(key: string, dateStamp: string, regionName: string, serviceName: string): Buffer {
+  const kDate = sign('AWS4' + key, dateStamp)
+  const kRegion = sign(kDate.toString('binary'), regionName)
+  const kService = sign(kRegion.toString('binary'), serviceName)
+  const kSigning = sign(kService.toString('binary'), 'aws4_request')
+  return kSigning
+}
+
+// Helper to get access token
+async function getAccessToken(): Promise<string | null> {
   try {
-    if (lpVal?.amount) {
-      return parseFloat(lpVal.amount)
-    } else if (typeof lpVal === 'object' && lpVal.amount) {
-      return parseFloat(lpVal.amount)
+    const params = new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: process.env.AMAZON_REFRESH_TOKEN!,
+      client_id: process.env.AMAZON_LWA_APP_ID!,
+      client_secret: process.env.AMAZON_LWA_CLIENT_SECRET!
+    })
+
+    const response = await fetch('https://api.amazon.com/auth/o2/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: params.toString()
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      console.error('Failed to get access token:', error)
+      return null
     }
-    return 0.0
+
+    const data = await response.json()
+    return data.access_token
   } catch (error) {
-    return 0.0
+    console.error('Error getting access token:', error)
+    return null
+  }
+}
+
+// Helper to format product data
+function formatProduct(item: any): any {
+  try {
+    const asin = item.asin || ''
+    
+    // Extract title from summaries or attributes
+    let title = 'Unknown Product'
+    if (item.summaries && item.summaries.length > 0) {
+      const summary = item.summaries.find((s: any) => s.marketplaceId === 'ATVPDKIKX0DER') || item.summaries[0]
+      if (summary && summary.itemName) {
+        title = summary.itemName
+      }
+    } else if (item.attributes?.itemName) {
+      const itemNameAttr = item.attributes.itemName
+      if (Array.isArray(itemNameAttr) && itemNameAttr.length > 0) {
+        title = itemNameAttr[0].value || itemNameAttr[0]
+      } else if (typeof itemNameAttr === 'string') {
+        title = itemNameAttr
+      }
+    }
+    
+    // Extract brand
+    let brand = ''
+    if (item.summaries && item.summaries.length > 0) {
+      const summary = item.summaries.find((s: any) => s.marketplaceId === 'ATVPDKIKX0DER') || item.summaries[0]
+      if (summary && summary.brand) {
+        brand = summary.brand
+      }
+    } else if (item.attributes?.brand) {
+      const brandAttr = item.attributes.brand
+      if (Array.isArray(brandAttr) && brandAttr.length > 0) {
+        brand = brandAttr[0].value || brandAttr[0]
+      } else if (typeof brandAttr === 'string') {
+        brand = brandAttr
+      }
+    }
+    
+    // Extract image
+    let imageUrl = ''
+    if (item.images && item.images.length > 0) {
+      const primaryImage = item.images.find((img: any) => img.variant === 'MAIN') || item.images[0]
+      if (primaryImage && primaryImage.link) {
+        imageUrl = primaryImage.link
+      }
+    }
+    
+    // Extract price - simplified
+    let listPrice = 0.0
+    
+    // Extract category
+    let category = ''
+    if (item.productTypes && item.productTypes.length > 0) {
+      category = item.productTypes[0].productType || ''
+    }
+    
+    return {
+      asin: asin,
+      title: title,
+      brand: brand,
+      listPrice: listPrice,
+      imageUrl: imageUrl || '/placeholder.svg?height=80&width=80',
+      category: category,
+      // Include additional fields for compatibility
+      ASIN: asin,
+      Title: title,
+      price: String(listPrice),
+      OriginalMSRP: String(listPrice),
+      image: imageUrl || '/placeholder.svg?height=80&width=80',
+      source: 'amazon'
+    }
+  } catch (error) {
+    console.error('Error formatting product:', error)
+    return null
   }
 }
 
@@ -55,166 +134,99 @@ export async function POST(request: NextRequest) {
     
     console.log(`=== STARTING SEARCH FOR: ${userInput} (Type: ${searchType}) ===`)
     
-    const spClient = createSPAPIClient()
-    let response: any
+    // Validate environment variables
+    const requiredVars = ['AMAZON_REFRESH_TOKEN', 'AMAZON_LWA_APP_ID', 'AMAZON_LWA_CLIENT_SECRET']
+    const missingVars = requiredVars.filter(varName => !process.env[varName])
     
-    // Handle different search types
-    if (searchType === 'asin') {
-      console.log(`Performing ASIN search for: ${userInput}`)
-      try {
-        response = await spClient.callAPI({
-          operation: 'getCatalogItem',
-          endpoint: 'catalogItems',
-          path: {
-            asin: userInput
-          },
-          query: {
-            marketplaceIds: ['ATVPDKIKX0DER'], // US marketplace
-            includedData: ['attributes', 'images', 'productTypes', 'salesRanks', 'summaries', 'variations']
-          }
-        })
-      } catch (err: any) {
-        console.error('ASIN search error:', err)
-        // If ASIN not found, return empty results
-        if (err.code === 'NOT_FOUND') {
-          return NextResponse.json({ items: [] })
-        }
-        throw err
-      }
-    } else {
-      // For both UPC and keyword searches, use searchCatalogItems
-      console.log(`Performing ${searchType} search for: ${userInput}`)
-      
-      const searchParams: any = {
-        marketplaceIds: ['ATVPDKIKX0DER'],
-        includedData: ['attributes', 'images', 'productTypes', 'salesRanks', 'summaries', 'variations'],
-        pageSize: 20
-      }
-      
-      if (searchType === 'upc') {
-        searchParams.identifiers = [userInput]
-        searchParams.identifiersType = 'UPC'
-      } else {
-        // For keyword search, use keywords parameter
-        searchParams.keywords = userInput
-      }
-      
-      try {
-        response = await spClient.callAPI({
-          operation: 'searchCatalogItems',
-          endpoint: 'catalogItems',
-          query: searchParams
-        })
-      } catch (err: any) {
-        console.error('Search error:', err)
-        // Return empty results for search errors
-        return NextResponse.json({ items: [] })
-      }
+    if (missingVars.length > 0) {
+      console.error(`Missing required environment variables: ${missingVars.join(', ')}`)
+      return NextResponse.json({ 
+        error: 'Configuration error',
+        items: []
+      }, { status: 500 })
     }
     
+    // Get access token
+    const accessToken = await getAccessToken()
+    if (!accessToken) {
+      console.error('Failed to obtain access token')
+      return NextResponse.json({ 
+        error: 'Authentication failed',
+        items: []
+      }, { status: 500 })
+    }
+    
+    // Build API URL based on search type
+    let apiUrl: string
+    const baseUrl = 'https://sellingpartnerapi-na.amazon.com'
+    
+    if (searchType === 'asin') {
+      apiUrl = `${baseUrl}/catalog/2022-04-01/items/${userInput}?marketplaceIds=ATVPDKIKX0DER&includedData=attributes,images,productTypes,salesRanks,summaries`
+    } else {
+      const params = new URLSearchParams({
+        marketplaceIds: 'ATVPDKIKX0DER',
+        includedData: 'attributes,images,productTypes,salesRanks,summaries',
+        pageSize: '20'
+      })
+      
+      if (searchType === 'upc') {
+        params.append('identifiers', userInput)
+        params.append('identifiersType', 'UPC')
+      } else {
+        params.append('keywords', userInput)
+      }
+      
+      apiUrl = `${baseUrl}/catalog/2022-04-01/items?${params.toString()}`
+    }
+    
+    console.log('Making SP-API request to:', apiUrl)
+    
+    // Make the API request
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'x-amz-access-token': accessToken,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('SP-API Error Response:', response.status, errorText)
+      
+      // Handle specific error cases
+      if (response.status === 404 && searchType === 'asin') {
+        return NextResponse.json({ items: [] })
+      }
+      
+      return NextResponse.json({ 
+        error: 'Failed to search Amazon catalog',
+        details: `HTTP ${response.status}: ${errorText}`,
+        items: []
+      }, { status: 500 })
+    }
+    
+    const responseData = await response.json()
     console.log('API response received')
     
-    // Handle single item response (ASIN search)
+    // Handle response based on search type
     let items: any[] = []
-    if (searchType === 'asin' && response) {
-      items = response ? [response] : []
-    } else if (response?.items) {
-      items = response.items || []
+    if (searchType === 'asin' && responseData) {
+      // Single item response
+      items = [responseData]
+    } else if (responseData.items) {
+      // Search results
+      items = responseData.items || []
     }
     
     console.log(`Found ${items.length} potential items`)
     
-    // Process and format items
-    const formattedItems = []
-    for (const item of items) {
-      try {
-        // Extract basic information
-        const asin = item.asin || ''
-        
-        // Get attributes safely
-        const attributes = item.attributes || {}
-        
-        // Extract title - try multiple possible attribute names
-        let title = 'Unknown Product'
-        const titleAttr = attributes.item_name || attributes.title || attributes.itemName || item.summaries?.marketplaceSummaries?.[0]?.itemName
-        if (Array.isArray(titleAttr) && titleAttr.length > 0) {
-          title = String(titleAttr[0].value || titleAttr[0])
-        } else if (titleAttr && typeof titleAttr === 'string') {
-          title = titleAttr
-        } else if (titleAttr?.value) {
-          title = String(titleAttr.value)
-        }
-        
-        // Extract brand  
-        let brand = ''
-        const brandAttr = attributes.brand || attributes.brand_name || item.summaries?.marketplaceSummaries?.[0]?.brand
-        if (Array.isArray(brandAttr) && brandAttr.length > 0) {
-          brand = String(brandAttr[0].value || brandAttr[0])
-        } else if (brandAttr && typeof brandAttr === 'string') {
-          brand = brandAttr
-        } else if (brandAttr?.value) {
-          brand = String(brandAttr.value)
-        }
-        
-        // Extract list price
-        let listPrice = 0.0
-        const listPriceAttr = attributes.list_price || attributes.listPrice
-        if (listPriceAttr) {
-          if (Array.isArray(listPriceAttr) && listPriceAttr.length > 0) {
-            listPrice = extractListPrice(listPriceAttr[0].value || listPriceAttr[0])
-          } else {
-            listPrice = extractListPrice(listPriceAttr.value || listPriceAttr)
-          }
-        }
-        
-        // Extract image URL - handle different image structures
-        let imageUrl = ''
-        if (item.images) {
-          // Try primary images first
-          const primaryImages = item.images.primary || item.images
-          if (Array.isArray(primaryImages) && primaryImages.length > 0) {
-            const firstImage = primaryImages[0]
-            if (firstImage.link) {
-              imageUrl = firstImage.link
-            } else if (firstImage.images && Array.isArray(firstImage.images)) {
-              // Look for the largest image
-              const largeImage = firstImage.images.find((img: any) => img.variant === 'LARGE') || firstImage.images[0]
-              if (largeImage?.link) {
-                imageUrl = largeImage.link
-              }
-            }
-          }
-        }
-        
-        // Extract product type/category
-        let category = ''
-        if (item.productTypes && Array.isArray(item.productTypes) && item.productTypes.length > 0) {
-          category = String(item.productTypes[0].productType || item.productTypes[0])
-        }
-        
-        const formattedItem = {
-          asin: asin,
-          title: title,
-          brand: brand,
-          listPrice: listPrice,
-          imageUrl: imageUrl || '/placeholder.svg?height=80&width=80',
-          category: category,
-          // Include additional fields that might be useful
-          ASIN: asin,
-          Title: title,
-          price: String(listPrice),
-          OriginalMSRP: String(listPrice),
-          image: imageUrl || '/placeholder.svg?height=80&width=80',
-          source: 'amazon'
-        }
-        
-        formattedItems.push(formattedItem)
-        
-      } catch (error) {
-        console.error('Error processing item:', error)
-        continue
-      }
-    }
+    // Format items
+    const formattedItems = items
+      .map(formatProduct)
+      .filter(item => item !== null)
     
     console.log(`Parsed ${formattedItems.length} valid products`)
     console.log(`Returning items: ${formattedItems.length} found`)
