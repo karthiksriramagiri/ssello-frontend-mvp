@@ -208,17 +208,17 @@ export function AmazonProductSearch({ onProductSelect, trigger }: AmazonProductS
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="p-6 pb-4 border-b">
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
+        <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Package className="h-5 w-5 text-orange-500" />
             Amazon Product Search
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 p-6 flex-1 min-h-0">
+        <div className="flex flex-col flex-1 min-h-0 p-6">
           {/* Search Form */}
-          <div className="space-y-4 flex-shrink-0">
+          <div className="space-y-4 flex-shrink-0 mb-4">
             <Tabs value={searchType} onValueChange={(value) => setSearchType(value as typeof searchType)}>
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="keyword">
@@ -257,33 +257,38 @@ export function AmazonProductSearch({ onProductSelect, trigger }: AmazonProductS
 
           {/* Error Message */}
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 flex-shrink-0">
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 flex-shrink-0 mb-4">
               <AlertCircle className="h-4 w-4" />
               {error}
             </div>
           )}
 
-          {/* Results */}
-          <div className="flex-1 min-h-0 overflow-hidden">
+          {/* Results Container */}
+          <div className="flex-1 min-h-0">
             {products.length > 0 && (
-              <ScrollArea className="h-[400px] w-full">
-                <div className="space-y-3 pr-3">
-                  {products.map((product) => (
-                    <ProductCard
-                      key={product.asin}
-                      product={product}
-                      buyboxData={buyboxData[product.asin]}
-                      isLoadingBuybox={loadingBuybox[product.asin]}
-                      onFetchBuybox={() => fetchBuyboxData(product.asin)}
-                      onSelect={() => handleProductSelect(product)}
-                    />
-                  ))}
-                </div>
-              </ScrollArea>
+              <div className="h-full">
+                <p className="text-sm text-gray-600 mb-3 flex-shrink-0">
+                  Results for: <span className="font-medium">{searchQuery}</span>
+                </p>
+                <ScrollArea className="h-[calc(100%-2rem)]">
+                  <div className="space-y-3 pr-3">
+                    {products.map((product) => (
+                      <ProductCard
+                        key={product.asin}
+                        product={product}
+                        buyboxData={buyboxData[product.asin]}
+                        isLoadingBuybox={loadingBuybox[product.asin]}
+                        onFetchBuybox={() => fetchBuyboxData(product.asin)}
+                        onSelect={() => handleProductSelect(product)}
+                      />
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
             )}
 
             {!isLoading && products.length === 0 && !error && (
-              <div className="flex flex-col items-center justify-center h-32 text-gray-500">
+              <div className="flex flex-col items-center justify-center h-full text-gray-500">
                 <Search className="h-8 w-8 mb-2" />
                 <p>Search for Amazon products to get started</p>
               </div>
