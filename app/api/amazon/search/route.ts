@@ -25,7 +25,7 @@ function createSPAPIClient() {
       SELLING_PARTNER_APP_CLIENT_SECRET: credentials.lwa_client_secret
     },
     endpoints_versions: {
-      catalogItems: '2020-12-01'
+      catalogItems: '2022-04-01' // Use the latest version
     }
   })
 }
@@ -61,47 +61,55 @@ export async function POST(request: NextRequest) {
     // Handle different search types
     if (searchType === 'asin') {
       console.log(`Performing ASIN search for: ${userInput}`)
-      response = await spClient.callAPI({
-        operation: 'getCatalogItem',
-        endpoint: 'catalogItems',
-        path: {
-          asin: userInput
-        },
-        query: {
-          marketplaceIds: ['ATVPDKIKX0DER'], // US marketplace
-          includedData: ['attributes', 'images', 'productTypes', 'relationships', 'salesRanks']
+      try {
+        response = await spClient.callAPI({
+          operation: 'getCatalogItem',
+          endpoint: 'catalogItems',
+          path: {
+            asin: userInput
+          },
+          query: {
+            marketplaceIds: ['ATVPDKIKX0DER'], // US marketplace
+            includedData: ['attributes', 'images', 'productTypes', 'salesRanks', 'summaries', 'variations']
+          }
+        })
+      } catch (err: any) {
+        console.error('ASIN search error:', err)
+        // If ASIN not found, return empty results
+        if (err.code === 'NOT_FOUND') {
+          return NextResponse.json({ items: [] })
         }
-      })
+        throw err
+      }
     } else {
       // For both UPC and keyword searches, use searchCatalogItems
       console.log(`Performing ${searchType} search for: ${userInput}`)
       
-      const searchQuery: {
-        marketplaceIds: string[]
-        includedData: string[]
-        pageSize: number
-        identifiers?: string[]
-        identifiersType?: string
-        keywords?: string | string[] // Allow both formats
-      } = {
+      const searchParams: any = {
         marketplaceIds: ['ATVPDKIKX0DER'],
-        includedData: ['attributes', 'images', 'productTypes', 'relationships', 'salesRanks'],
+        includedData: ['attributes', 'images', 'productTypes', 'salesRanks', 'summaries', 'variations'],
         pageSize: 20
       }
       
       if (searchType === 'upc') {
-        searchQuery.identifiers = [userInput]
-        searchQuery.identifiersType = 'UPC'
+        searchParams.identifiers = [userInput]
+        searchParams.identifiersType = 'UPC'
       } else {
-        // keyword search - use array format like Python version that was working
-        searchQuery.keywords = [userInput]
+        // For keyword search, use keywords parameter
+        searchParams.keywords = userInput
       }
       
-      response = await spClient.callAPI({
-        operation: 'searchCatalogItems',
-        endpoint: 'catalogItems',
-        query: searchQuery
-      })
+      try {
+        response = await spClient.callAPI({
+          operation: 'searchCatalogItems',
+          endpoint: 'catalogItems',
+          query: searchParams
+        })
+      } catch (err: any) {
+        console.error('Search error:', err)
+        // Return empty results for search errors
+        return NextResponse.json({ items: [] })
+      }
     }
     
     console.log('API response received')
@@ -126,47 +134,54 @@ export async function POST(request: NextRequest) {
         // Get attributes safely
         const attributes = item.attributes || {}
         
-        // Extract title
-        const titleAttr = attributes.item_name || attributes.title
+        // Extract title - try multiple possible attribute names
         let title = 'Unknown Product'
+        const titleAttr = attributes.item_name || attributes.title || attributes.itemName || item.summaries?.marketplaceSummaries?.[0]?.itemName
         if (Array.isArray(titleAttr) && titleAttr.length > 0) {
-          title = String(titleAttr[0])
+          title = String(titleAttr[0].value || titleAttr[0])
         } else if (titleAttr && typeof titleAttr === 'string') {
           title = titleAttr
+        } else if (titleAttr?.value) {
+          title = String(titleAttr.value)
         }
         
         // Extract brand  
-        const brandAttr = attributes.brand
         let brand = ''
+        const brandAttr = attributes.brand || attributes.brand_name || item.summaries?.marketplaceSummaries?.[0]?.brand
         if (Array.isArray(brandAttr) && brandAttr.length > 0) {
-          brand = String(brandAttr[0])
+          brand = String(brandAttr[0].value || brandAttr[0])
         } else if (brandAttr && typeof brandAttr === 'string') {
           brand = brandAttr
+        } else if (brandAttr?.value) {
+          brand = String(brandAttr.value)
         }
         
         // Extract list price
-        const listPriceAttr = attributes.list_price
         let listPrice = 0.0
+        const listPriceAttr = attributes.list_price || attributes.listPrice
         if (listPriceAttr) {
           if (Array.isArray(listPriceAttr) && listPriceAttr.length > 0) {
-            listPrice = extractListPrice(listPriceAttr[0])
+            listPrice = extractListPrice(listPriceAttr[0].value || listPriceAttr[0])
           } else {
-            listPrice = extractListPrice(listPriceAttr)
+            listPrice = extractListPrice(listPriceAttr.value || listPriceAttr)
           }
         }
         
-        // Extract image URL
+        // Extract image URL - handle different image structures
         let imageUrl = ''
-        if (item.images && Array.isArray(item.images)) {
-          for (const image of item.images) {
-            if (image.images && Array.isArray(image.images)) {
-              for (const img of image.images) {
-                if (img.link) {
-                  imageUrl = img.link
-                  break
-                }
+        if (item.images) {
+          // Try primary images first
+          const primaryImages = item.images.primary || item.images
+          if (Array.isArray(primaryImages) && primaryImages.length > 0) {
+            const firstImage = primaryImages[0]
+            if (firstImage.link) {
+              imageUrl = firstImage.link
+            } else if (firstImage.images && Array.isArray(firstImage.images)) {
+              // Look for the largest image
+              const largeImage = firstImage.images.find((img: any) => img.variant === 'LARGE') || firstImage.images[0]
+              if (largeImage?.link) {
+                imageUrl = largeImage.link
               }
-              if (imageUrl) break
             }
           }
         }
@@ -174,7 +189,7 @@ export async function POST(request: NextRequest) {
         // Extract product type/category
         let category = ''
         if (item.productTypes && Array.isArray(item.productTypes) && item.productTypes.length > 0) {
-          category = String(item.productTypes[0])
+          category = String(item.productTypes[0].productType || item.productTypes[0])
         }
         
         const formattedItem = {
@@ -182,8 +197,15 @@ export async function POST(request: NextRequest) {
           title: title,
           brand: brand,
           listPrice: listPrice,
-          imageUrl: imageUrl,
-          category: category
+          imageUrl: imageUrl || '/placeholder.svg?height=80&width=80',
+          category: category,
+          // Include additional fields that might be useful
+          ASIN: asin,
+          Title: title,
+          price: String(listPrice),
+          OriginalMSRP: String(listPrice),
+          image: imageUrl || '/placeholder.svg?height=80&width=80',
+          source: 'amazon'
         }
         
         formattedItems.push(formattedItem)
