@@ -7,7 +7,6 @@ function createSPAPIClient() {
     refresh_token: process.env.AMAZON_REFRESH_TOKEN,
     lwa_app_id: process.env.AMAZON_LWA_APP_ID,
     lwa_client_secret: process.env.AMAZON_LWA_CLIENT_SECRET,
-    seller_id: process.env.AMAZON_SELLER_ID || 'A13NBKN6I076SR',
   }
 
   // Validate that all required environment variables are set
@@ -24,6 +23,9 @@ function createSPAPIClient() {
     credentials: {
       SELLING_PARTNER_APP_CLIENT_ID: credentials.lwa_app_id,
       SELLING_PARTNER_APP_CLIENT_SECRET: credentials.lwa_client_secret
+    },
+    endpoints_versions: {
+      catalogItems: '2020-12-01'
     }
   })
 }
@@ -68,16 +70,20 @@ export async function POST(request: NextRequest) {
         query: {
           marketplaceIds: ['ATVPDKIKX0DER'], // US marketplace
           includedData: ['attributes', 'images', 'productTypes', 'relationships', 'salesRanks']
-        },
-        options: {
-          version: '2020-12-01'
         }
       })
     } else {
       // For both UPC and keyword searches, use searchCatalogItems
       console.log(`Performing ${searchType} search for: ${userInput}`)
       
-      const searchQuery: any = {
+      const searchQuery: {
+        marketplaceIds: string[]
+        includedData: string[]
+        pageSize: number
+        identifiers?: string[]
+        identifiersType?: string
+        keywords?: string | string[] // Allow both formats
+      } = {
         marketplaceIds: ['ATVPDKIKX0DER'],
         includedData: ['attributes', 'images', 'productTypes', 'relationships', 'salesRanks'],
         pageSize: 20
@@ -87,18 +93,14 @@ export async function POST(request: NextRequest) {
         searchQuery.identifiers = [userInput]
         searchQuery.identifiersType = 'UPC'
       } else {
-        // keyword search - SP-API documentation shows this should be an array
-        // @ts-ignore - TypeScript definitions may not match actual API format
+        // keyword search - use array format like Python version that was working
         searchQuery.keywords = [userInput]
       }
       
       response = await spClient.callAPI({
         operation: 'searchCatalogItems',
         endpoint: 'catalogItems',
-        query: searchQuery,
-        options: {
-          version: '2020-12-01'
-        }
+        query: searchQuery
       })
     }
     
@@ -198,10 +200,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ items: formattedItems })
     
   } catch (error) {
-    console.error('Error searching Amazon products:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error occurred' }, 
-      { status: 500 }
-    )
+    console.error('SP-API Error:', error)
+    return NextResponse.json({ 
+      error: 'Failed to search Amazon catalog',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      items: []
+    }, { status: 500 })
   }
 } 
