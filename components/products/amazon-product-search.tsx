@@ -208,17 +208,17 @@ export function AmazonProductSearch({ onProductSelect, trigger }: AmazonProductS
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Package className="h-5 w-5 text-orange-500" />
             Amazon Product Search
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 flex-1 min-h-0">
+        <div className="flex flex-col gap-4 p-6 flex-1 min-h-0">
           {/* Search Form */}
-          <div className="space-y-4">
+          <div className="space-y-4 flex-shrink-0">
             <Tabs value={searchType} onValueChange={(value) => setSearchType(value as typeof searchType)}>
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="keyword">
@@ -257,16 +257,16 @@ export function AmazonProductSearch({ onProductSelect, trigger }: AmazonProductS
 
           {/* Error Message */}
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 flex-shrink-0">
               <AlertCircle className="h-4 w-4" />
               {error}
             </div>
           )}
 
           {/* Results */}
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-hidden">
             {products.length > 0 && (
-              <ScrollArea className="h-full">
+              <ScrollArea className="h-[400px] w-full">
                 <div className="space-y-3 pr-3">
                   {products.map((product) => (
                     <ProductCard
